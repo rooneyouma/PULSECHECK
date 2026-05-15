@@ -47,7 +47,7 @@ export default function SiteRow({ site, onClick }) {
         <span style={{ fontSize: "11px", color: "#4a5568" }}>{site.lastChecked}</span>
       </div>
 
-      <UptimeBar history={site.history} />
+      <UptimeBar history={site.history || site.ping_history || site.logs || []} />
     </div>
   );
 }

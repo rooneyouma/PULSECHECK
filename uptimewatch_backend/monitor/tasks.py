@@ -1,8 +1,12 @@
-# monitor/tasks.py
+import os
 from celery import shared_task
 import requests
+from django.conf import settings
 
 from .models import Site, Check
+
+if not settings.configured:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'uptimewatch_backend.settings')
 
 @shared_task
 def check_site(site_id):
@@ -30,3 +34,9 @@ def check_all_sites():
     sites = Site.objects.filter(is_active=True)
     for site in sites:
         check_site.delay(site.id)
+
+@shared_task
+def trigger_all_site_checks():
+    site_ids = Site.objects.values_list('id', flat=True)
+    for site_id in site_ids:
+        check_site.delay(site_id)

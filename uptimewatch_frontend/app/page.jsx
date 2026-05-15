@@ -1,85 +1,59 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import SiteRow from "@/components/SiteCard";
 import AddSiteModal from "@/components/AddSiteModal";
 import StatusDot from "@/components/StatusDot";
 import UptimeBar from "@/components/UptimeChart";
 
-const mockSites = [
-  {
-    id: 1,
-    name: "Production API",
-    url: "https://api.mypms.com",
-    status: "up",
-    uptime: 99.98,
-    responseTime: 142,
-    lastChecked: "2s ago",
-    incidents: 0,
-    history: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1],
-  },
-  {
-    id: 2,
-    name: "Frontend App",
-    url: "https://app.mypms.com",
-    status: "up",
-    uptime: 100,
-    responseTime: 89,
-    lastChecked: "1s ago",
-    incidents: 0,
-    history: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  },
-  {
-    id: 3,
-    name: "Auth Service",
-    url: "https://auth.mypms.com",
-    status: "down",
-    uptime: 97.42,
-    responseTime: null,
-    lastChecked: "3s ago",
-    incidents: 2,
-    history: [1,1,1,0,0,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
-  },
-  {
-    id: 4,
-    name: "Database Proxy",
-    url: "https://db.mypms.com",
-    status: "up",
-    uptime: 99.71,
-    responseTime: 204,
-    lastChecked: "5s ago",
-    incidents: 1,
-    history: [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  },
-];
-
-const stats = {
-  totalSites: 4,
-  upSites: 3,
-  avgUptime: 99.28,
-  avgResponse: 145,
-  activeIncidents: 1,
-};
-
 export default function Dashboard() {
-  const [sites, setSites] = useState(mockSites);
   const [showModal, setShowModal] = useState(false);
   const [selected, setSelected] = useState(null);
   const [time, setTime] = useState(null);
 
-useEffect(() => {
-  setTime(new Date());
-  
-  const t = setInterval(() => setTime(new Date()), 1000);
-  return () => clearInterval(t);
-}, []);
 
-  const handleAdd = ({ name, url }) => {
-    setSites(prev => [...prev, {
-      id: prev.length + 1, name, url, status: "up",
-      uptime: 100, responseTime: 0, lastChecked: "just now",
-      incidents: 0, history: Array(36).fill(1),
-    }]);
+  const { data: sites = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["/sites/"],
+    refetchInterval: 10000, 
+  });
+
+ 
+  const stats = {
+    totalSites: sites.length,
+    upSites: sites.filter(s => s.status === "up" || s.status === "operational").length,
+    avgUptime: sites.length 
+      ? parseFloat((sites.reduce((acc, s) => acc + (s.uptime || 100), 0) / sites.length).toFixed(2)) 
+      : 100,
+    avgResponse: sites.length
+      ? Math.round(sites.reduce((acc, s) => acc + (s.responseTime || s.last_response_time || 0), 0) / sites.length)
+      : 0,
+    activeIncidents: sites.filter(s => s.status === "down").length,
   };
+
+ 
+  const currentSelectedDetail = selected ? sites.find(s => s.id === selected.id) || selected : null;
+
+  useEffect(() => {
+    setTime(new Date());
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#070b14", color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono', monospace" }}>
+        <span style={{ fontSize: "12px", color: "#4a5568", letterSpacing: "0.1em" }}>LOADING REALTIME MONITOR DATA...</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#070b14", color: "#ff3b5c", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono', monospace" }}>
+        <span style={{ fontSize: "12px", letterSpacing: "0.1em" }}>FAILED TO CONNECT TO MONITOR BACKEND ENGINE</span>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -183,10 +157,7 @@ useEffect(() => {
           }}>
             <span style={{ color: "#ff3b5c", fontSize: "11px" }}>●</span>
             <span style={{ color: "#ff3b5c", fontSize: "12px", letterSpacing: "0.05em" }}>
-              ACTIVE INCIDENT — Auth Service has been down for 14 minutes
-            </span>
-            <span style={{ marginLeft: "auto", color: "#ff3b5c", fontSize: "11px", cursor: "pointer" }}>
-              VIEW →
+              ACTIVE INCIDENT — {stats.activeIncidents} of your tracked endpoints are reporting operational outages
             </span>
           </div>
         )}
@@ -209,10 +180,16 @@ useEffect(() => {
             ))}
           </div>
 
-          {/* Rows */}
-          {sites.map(site => (
-            <SiteRow key={site.id} site={site} onClick={setSelected} />
-          ))}
+          {/* Real Backend Map Rows */}
+          {sites.length > 0 ? (
+            sites.map(site => (
+              <SiteRow key={site.id} site={site} onClick={setSelected} />
+            ))
+          ) : (
+            <div style={{ padding: "48px", textAlign: "center", color: "#4a5568", fontSize: "12px", letterSpacing: "0.05em" }}>
+              NO MONITORS REGISTERED ON CORE ENGINE NETWORK
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -221,7 +198,7 @@ useEffect(() => {
           justifyContent: "space-between", alignItems: "center",
         }}>
           <span style={{ fontSize: "11px", color: "#2d3748" }}>
-            Checks run every 5 minutes · All times in EAT
+            Checks run automatically via pipeline systems · All times in EAT
           </span>
           <span style={{ fontSize: "11px", color: "#2d3748" }}>
             {sites.length} monitors active
@@ -230,7 +207,7 @@ useEffect(() => {
       </div>
 
       {/* Site Detail Panel */}
-      {selected && (
+      {currentSelectedDetail && (
         <div style={{
           position: "fixed", right: 0, top: 0, bottom: 0, width: "360px",
           background: "#0a0e1a", borderLeft: "1px solid #1a1f2e",
@@ -242,19 +219,19 @@ useEffect(() => {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-            <StatusDot status={selected.status} />
+            <StatusDot status={currentSelectedDetail.status} />
             <div>
-              <div style={{ fontSize: "16px", fontWeight: "500", color: "#e2e8f0", fontFamily: "'Syne', sans-serif" }}>{selected.name}</div>
-              <div style={{ fontSize: "11px", color: "#4a5568", marginTop: "2px" }}>{selected.url}</div>
+              <div style={{ fontSize: "16px", fontWeight: "500", color: "#e2e8f0", fontFamily: "'Syne', sans-serif" }}>{currentSelectedDetail.name}</div>
+              <div style={{ fontSize: "11px", color: "#4a5568", marginTop: "2px" }}>{currentSelectedDetail.url}</div>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px" }}>
             {[
-              { label: "UPTIME", value: `${selected.uptime}%` },
-              { label: "RESPONSE", value: selected.responseTime ? `${selected.responseTime}ms` : "—" },
-              { label: "INCIDENTS", value: selected.incidents },
-              { label: "LAST CHECK", value: selected.lastChecked },
+              { label: "UPTIME", value: `${currentSelectedDetail.uptime || 100}%` },
+              { label: "RESPONSE", value: (currentSelectedDetail.responseTime || currentSelectedDetail.last_response_time) ? `${currentSelectedDetail.responseTime || currentSelectedDetail.last_response_time}ms` : "—" },
+              { label: "INCIDENTS", value: currentSelectedDetail.incidents ?? 0 },
+              { label: "LAST CHECK", value: currentSelectedDetail.lastChecked || currentSelectedDetail.last_checked || "just now" },
             ].map((item, i) => (
               <div key={i} style={{
                 background: "#070b14", border: "1px solid #1a1f2e",
@@ -268,7 +245,7 @@ useEffect(() => {
 
           <div style={{ marginBottom: "16px" }}>
             <div style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "10px" }}>UPTIME HISTORY</div>
-            <UptimeBar history={selected.history} />
+            <UptimeBar history={currentSelectedDetail.history || currentSelectedDetail.ping_history || []} />
           </div>
 
           <div style={{ display: "flex", gap: "8px", marginTop: "24px" }}>
@@ -292,7 +269,7 @@ useEffect(() => {
         </div>
       )}
 
-      {showModal && <AddSiteModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
+      {showModal && <AddSiteModal onClose={() => setShowModal(false)} onAdd={refetch} />}
     </div>
   );
 }

@@ -1,12 +1,22 @@
 from django.db import models
+from django.utils.text import slugify
 
 class Site(models.Model):
     name = models.CharField(max_length=100)
     url = models.URLField()
-    slug = models.SlugField(unique=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
     check_interval = models.IntegerField(default=5)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
 
 class Check(models.Model):
     STATUS_CHOICES = [('up', 'Up'), ('down', 'Down')]
