@@ -1,3 +1,6 @@
 from django.contrib import admin
+from .models import Site, Check, Incident
 
-# Register your models here.
+admin.site.register(Site)
+admin.site.register(Check)
+admin.site.register(Incident)

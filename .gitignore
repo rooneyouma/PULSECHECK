@@ -1,0 +1,20 @@
+important.md
+
+# Python virtual environments
+uptimewatch_backend/venv_wsl/
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local Database
+uptimewatch_backend/db.sqlite3
+
+# Next.js build output & dependencies
+uptimewatch_frontend/.next/
+uptimewatch_frontend/node_modules/
