@@ -142,12 +142,12 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
 # Tell Celery Beat exactly what to run and how often
-CELERY_BEAT_SCHEDULE = {
-    'automated-ping-sweep-every-minute': {
-        'task': 'monitor.tasks.trigger_all_site_checks', 
-        'schedule': 30.0,  
-    },
-}
+# CELERY_BEAT_SCHEDULE = {
+#     'automated-ping-sweep-every-minute': {
+#         'task': 'monitor.tasks.trigger_all_site_checks', 
+#         'schedule': 30.0,  
+#     },
+# }
 
 # Tell Celery to use the Database Scheduler instead of static files
-# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
