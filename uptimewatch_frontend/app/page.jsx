@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import SiteRow from "@/components/SiteCard";
 import AddSiteModal from "@/components/AddSiteModal";
 import StatusDot from "@/components/StatusDot";
 import UptimeBar from "@/components/UptimeChart";
+import api from "@/providers/api";
 
 export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
@@ -16,6 +17,27 @@ export default function Dashboard() {
     queryKey: ["/sites/"],
     refetchInterval: 10000, 
   });
+
+  
+  const deleteMutation = useMutation({
+    mutationFn: async (siteId) => {
+      return await api.delete(`/sites/${siteId}/`);
+    },
+    onSuccess: () => {
+      setSelected(null); 
+      refetch();        
+    },
+    onError: (err) => {
+      console.error("Delete Error:", err);
+      alert("Failed to remove monitor from core engine network.");
+    }
+  });
+
+  const handleDeleteClick = (siteId, siteName) => {
+    if (confirm(`CRITICAL: Stop tracking and delete all log data for ${siteName}?`)) {
+      deleteMutation.mutate(siteId);
+    }
+  };
 
  
   const stats = {
@@ -80,13 +102,6 @@ export default function Dashboard() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{
-              width: "28px", height: "28px", borderRadius: "6px",
-              background: "linear-gradient(135deg, #00ff88 0%, #00b4d8 100%)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <span style={{ fontSize: "12px", fontWeight: "bold", color: "#070b14" }}>▲</span>
-            </div>
             <span style={{ fontSize: "13px", fontWeight: "500", letterSpacing: "0.15em", color: "#e2e8f0" }}>
               UPTIMEWATCH
             </span>
@@ -257,13 +272,19 @@ export default function Dashboard() {
             }}>
               VIEW STATUS PAGE
             </button>
-            <button style={{
-              flex: 1, background: "transparent", border: "1px solid #ff3b5c",
-              color: "#ff3b5c", borderRadius: "6px", padding: "9px",
-              fontSize: "11px", cursor: "pointer", fontFamily: "'DM Mono', monospace",
-              letterSpacing: "0.06em",
-            }}>
-              REMOVE
+            <button 
+              onClick={() => handleDeleteClick(currentSelectedDetail.id, currentSelectedDetail.name)}
+              disabled={deleteMutation.isPending}
+              style={{
+                flex: 1, background: "transparent", border: "1px solid #ff3b5c",
+                color: "#ff3b5c", borderRadius: "6px", padding: "9px",
+                fontSize: "11px", cursor: deleteMutation.isPending ? "not-allowed" : "pointer", 
+                fontFamily: "'DM Mono', monospace",
+                letterSpacing: "0.06em",
+                opacity: deleteMutation.isPending ? 0.5 : 1
+              }}
+            >
+              {deleteMutation.isPending ? "REMOVING..." : "REMOVE"}
             </button>
           </div>
         </div>
