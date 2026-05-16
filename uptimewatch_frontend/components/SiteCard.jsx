@@ -4,11 +4,11 @@ import UptimeBar from "./UptimeChart";
 
 export default function SiteRow({ site, onClick }) {
   return (
-    <div
+    <div className="mobile-site-row"
       onClick={() => onClick(site)}
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr 1fr 2fr",
+        gridTemplateColumns: "1.5fr 1fr 1fr 1.2fr 1.5fr",
         alignItems: "center",
         padding: "16px 20px",
         borderBottom: "1px solid #1a1f2e",
@@ -19,7 +19,7 @@ export default function SiteRow({ site, onClick }) {
       onMouseEnter={e => e.currentTarget.style.background = "#0d1117"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div className="mobile-site-name" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         <StatusDot status={site.status} />
         <div>
           <div style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: "500", fontFamily: "'DM Mono', monospace" }}>{site.name}</div>
@@ -44,10 +44,14 @@ export default function SiteRow({ site, onClick }) {
       </div>
 
       <div style={{ fontFamily: "'DM Mono', monospace" }}>
-        <span style={{ fontSize: "11px", color: "#4a5568" }}>{site.lastChecked}</span>
+        <span style={{ fontSize: "11px", color: "#4a5568" }}>
+          {site.lastChecked ? new Date(site.lastChecked).toLocaleString("en-GB", { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : "—"}
+        </span>
       </div>
 
-      <UptimeBar history={site.history || site.ping_history || site.logs || []} />
+      <div className="mobile-history-bar">
+        <UptimeBar history={site.history || site.ping_history || site.logs || []} />
+      </div>
     </div>
   );
 }

@@ -14,9 +14,10 @@ class CheckSerializer(serializers.ModelSerializer):
         fields = ['status', 'response_time', 'checked_at']
 
 class IncidentSerializer(serializers.ModelSerializer):
+    site_name = serializers.CharField(source='site.name', read_only=True)
     class Meta:
         model = Incident
-        fields = ['site', 'started_at', 'resolved_at']
+        fields = ['id', 'site', 'site_name', 'started_at', 'resolved_at']
 
 class SiteSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
@@ -49,11 +50,11 @@ class SiteSerializer(serializers.ModelSerializer):
     def get_lastChecked(self, obj):
         latest_check = Check.objects.filter(site=obj).order_by('-checked_at').first()
         if latest_check:
-            return latest_check.checked_at.strftime("%H:%M:%S")
-        return "never"
+            return latest_check.checked_at.isoformat()
+        return None
 
     def get_history(self, obj):
-        recent_checks = Check.objects.filter(site=obj).order_by('-checked_at')[:36]
+        recent_checks = Check.objects.filter(site=obj).order_by('-checked_at')[:20]
         return [1 if c.status == "up" else 0 for c in reversed(recent_checks)]
 
     def get_uptime(self, obj):

@@ -24,3 +24,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Mobile Responsiveness Overrides */
+@media (max-width: 768px) {
+  /* Dashboard specific grids */
+  .mobile-nav-wrap { flex-direction: column !important; align-items: stretch !important; height: auto !important; padding: 16px !important; gap: 16px !important; overflow-x: hidden; }
+  .mobile-nav-tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 8px; width: 100% !important; scrollbar-width: none; }
+  .mobile-nav-tabs::-webkit-scrollbar { display: none; }
+  .mobile-nav-actions { justify-content: space-between !important; width: 100% !important; }
+  .mobile-grid-stats { grid-template-columns: 1fr 1fr !important; }
+  .mobile-table-header { display: none !important; }
+  .mobile-modal-panel { width: 100% !important; border-left: none !important; right: 0 !important; }
+  
+  /* Generic mobile grids & toggles */
+  .mobile-grid-1 { grid-template-columns: 1fr !important; }
+  .mobile-grid-2 { grid-template-columns: 1fr 1fr !important; }
+  .mobile-hide { display: none !important; }
+  
+  /* SiteCard specific structural breaks */
+  .mobile-site-row { grid-template-columns: 1fr 1fr !important; gap: 16px !important; padding: 16px !important; }
+  .mobile-site-name { grid-column: span 2 !important; }
+  .mobile-history-bar { grid-column: span 2 !important; }
+
+  /* Footer Layout */
+  .mobile-footer { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+}

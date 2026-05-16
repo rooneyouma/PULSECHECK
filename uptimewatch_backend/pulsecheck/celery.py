@@ -1,9 +1,9 @@
 import os
 from celery import Celery
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'uptimewatch.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pulsecheck.settings')
 
-app = Celery('uptimewatch')
+app = Celery('pulsecheck')
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 

@@ -24,6 +24,9 @@ class SiteViewSet(ModelViewSet):
         serializer = IncidentSerializer(incidents, many=True)
         return Response(serializer.data)
     
+class IncidentViewSet(ModelViewSet):
+    queryset = Incident.objects.all().order_by('-started_at')
+    serializer_class = IncidentSerializer
 
 class StatusPageViewSet(ReadOnlyModelViewSet):
     queryset = Site.objects.filter(is_active=True)
@@ -32,16 +35,24 @@ class StatusPageViewSet(ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         site = self.get_object()
-        latest_checks = Check.objects.filter(site=site).latest('checked_at')
+        
+        # Handle cases where there are no checks for this site yet gracefully
+        try:
+            latest_check = Check.objects.filter(site=site).latest('checked_at')
+            is_up = latest_check.status == 'up'
+            last_checked = latest_check.checked_at
+        except Check.DoesNotExist:
+            is_up = False
+            last_checked = None
 
         data = {
-        "site_name": site.name,
-        "is_up": latest_check.status == 'up',
-        "last_checked": latest_check.checked_at,
-        "uptime_history": CheckSerializer(
-            Check.objects.filter(site=site).order_by('-checked_at')[:30], 
-            many=True
-        ).data
-    }
+            "site_name": site.name,
+            "is_up": is_up,
+            "last_checked": last_checked,
+            "uptime_history": CheckSerializer(
+                Check.objects.filter(site=site).order_by('-checked_at')[:20], 
+                many=True
+            ).data
+        }
 
         return Response(data)
