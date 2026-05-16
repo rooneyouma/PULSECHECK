@@ -1,9 +1,11 @@
 from django.shortcuts import render
+from django.contrib.auth.models import User
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
-from .models import Site, Check, Incident 
+from .models import Site, Check, Incident, Configuration
 from .serializers import SiteSerializer, CheckSerializer, IncidentSerializer
 
 class SiteViewSet(ModelViewSet):
@@ -54,5 +56,17 @@ class StatusPageViewSet(ReadOnlyModelViewSet):
                 many=True
             ).data
         }
-
         return Response(data)
+
+class AlertEmailView(APIView):
+    def get(self, request):
+        config = Configuration.load()
+        return Response({"alert_email": config.alert_email})
+
+    def post(self, request):
+        email = request.data.get("alert_email", "")
+        if email:
+            config = Configuration.load()
+            config.alert_email = email
+            config.save()
+        return Response({"alert_email": email})

@@ -5,7 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.mail import send_mail
 
-from .models import Site, Check, Incident
+from .models import Site, Check, Incident, Configuration
 
 if not settings.configured:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pulsecheck.settings')
@@ -40,10 +40,14 @@ def check_site(site_id):
     # Incident Processing
     if old_status == 'up' and status == 'down':
         Incident.objects.create(site=site, started_at=timezone.now())
+        
+        config = Configuration.load()
+        alert_email = config.alert_email if config.alert_email else settings.ALERT_EMAIL
+        
         subject = f"🚨 UPTIME ALERT: {site.name} is DOWN"
         message = f"PulseCheck monitoring has detected that {site.name} ({site.url}) is unreachable.\n\nPlease check your server immediately."
         try:
-            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ALERT_EMAIL], fail_silently=True)
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [alert_email], fail_silently=True)
         except Exception:
             pass
 
@@ -52,11 +56,15 @@ def check_site(site_id):
         if active_incident:
             active_incident.resolved_at = timezone.now()
             active_incident.save()
+            
+            config = Configuration.load()
+            alert_email = config.alert_email if config.alert_email else settings.ALERT_EMAIL
+
             duration = active_incident.resolved_at - active_incident.started_at
             subject = f"✅ RECOVERY: {site.name} is UP"
             message = f"PulseCheck monitoring confirms that {site.name} ({site.url}) is back online.\n\nTotal Downtime Duration: {duration}"
             try:
-                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ALERT_EMAIL], fail_silently=True)
+                send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [alert_email], fail_silently=True)
             except Exception:
                 pass
 

@@ -80,7 +80,7 @@ export default function LoginPage() {
           onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = 0.8 }}
           onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = 1 }}
         >
-          {loading ? "AUTHENTICATING..." : "INITIALIZE HANDSHAKE"}
+          {loading ? "AUTHENTICATING..." : "ENTER THE CORE"}
         </button>
       </div>
     </div>

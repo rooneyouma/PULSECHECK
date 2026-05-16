@@ -30,3 +30,18 @@ class Incident(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     started_at = models.DateTimeField()
     resolved_at = models.DateTimeField(null=True)
+
+class Configuration(models.Model):
+    alert_email = models.EmailField(default="admin@pulsecheck.com")
+
+    def save(self, *args, **kwargs):
+        self.pk = 1 
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return f"Alert Email ({self.alert_email})"

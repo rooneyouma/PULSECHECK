@@ -18,6 +18,12 @@ export default function Dashboard() {
   const [time, setTime] = useState(null);
   const [page, setPage] = useState(1);
 
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    router.push("/login");
+  };
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [`/sites/?page=${page}`],
     refetchInterval: 10000, 
@@ -136,6 +142,23 @@ export default function Dashboard() {
             }}
           >
             + ADD MONITOR
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              background: "transparent", color: "#ff3b5c", border: "1px solid #ff3b5c",
+              borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
+              fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
+              fontFamily: "'DM Mono', monospace", transition: "all 0.2s"
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "rgba(255, 59, 92, 0.1)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            TERMINATE SESSION
           </button>
         </div>
       </div>

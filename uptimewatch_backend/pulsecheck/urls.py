@@ -15,11 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+import os
 from django.urls import path,include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+SECRET_ADMIN_PATH = os.getenv('ADMIN_URL', 'admin/')
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(f'{SECRET_ADMIN_PATH}', admin.site.urls),
     path('api/',include('monitor.urls')),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
