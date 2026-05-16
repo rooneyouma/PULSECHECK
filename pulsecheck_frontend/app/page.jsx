@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import SiteRow from "@/components/SiteCard";
 import AddSiteModal from "@/components/AddSiteModal";
 import StatusDot from "@/components/StatusDot";
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null);
   const [time, setTime] = useState(null);
   const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
@@ -37,20 +38,38 @@ export default function Dashboard() {
     mutationFn: async (siteId) => {
       return await api.delete(`/sites/${siteId}/`);
     },
-    onSuccess: () => {
-      setSelected(null); 
-      refetch();        
+    // Optimistic update: remove from cache immediately before server responds
+    onMutate: async (siteId) => {
+      const queryKey = [`/sites/?page=${page}`];
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          count: Math.max(0, (old.count || 1) - 1),
+          results: old.results.filter((s) => s.id !== siteId),
+        };
+      });
+      setSelected(null);
+      return { previousData, queryKey };
     },
-    onError: (err) => {
+    onError: (err, _siteId, context) => {
+      // Roll back on failure
+      if (context?.previousData) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
       console.error("Delete Error:", err);
-      alert("Failed to remove monitor from core engine network.");
-    }
+    },
+    onSettled: () => {
+      // Sync with server after optimistic update
+      queryClient.invalidateQueries({ queryKey: ["/sites/"], exact: false });
+    },
   });
 
-  const handleDeleteClick = (siteId, siteName) => {
-    if (confirm(`CRITICAL: Stop tracking and delete all log data for ${siteName}?`)) {
-      deleteMutation.mutate(siteId);
-    }
+  // No confirm() prompt — delete immediately on click
+  const handleDeleteClick = (siteId) => {
+    deleteMutation.mutate(siteId);
   };
 
  
@@ -100,6 +119,17 @@ export default function Dashboard() {
         ::-webkit-scrollbar-track { background: #070b14; }
         ::-webkit-scrollbar-thumb { background: #1a1f2e; border-radius: 2px; }
         input::placeholder { color: #2d3748; }
+        @keyframes shimmer {
+          0% { background-position: -600px 0; }
+          100% { background-position: 600px 0; }
+        }
+        .skeleton-row {
+          background: linear-gradient(90deg, #0d1117 25%, #1a1f2e 50%, #0d1117 75%);
+          background-size: 600px 100%;
+          animation: shimmer 1.4s infinite linear;
+          border-radius: 4px;
+          height: 14px;
+        }
       `}</style>
 
       {/* Header */}
@@ -227,7 +257,25 @@ export default function Dashboard() {
               </div>
 
               {/* Real Backend Map Rows */}
-              {sites.length > 0 ? (
+              {isLoading ? (
+                // Skeleton rows during initial load — no empty-state flash
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.5fr 1fr 1fr 1.2fr 1.5fr",
+                    padding: "16px 20px",
+                    borderBottom: "1px solid #1a1f2e",
+                    gap: "12px",
+                    alignItems: "center",
+                  }}>
+                    <div className="skeleton-row" style={{ width: "60%" }} />
+                    <div className="skeleton-row" style={{ width: "40%" }} />
+                    <div className="skeleton-row" style={{ width: "50%" }} />
+                    <div className="skeleton-row" style={{ width: "70%" }} />
+                    <div className="skeleton-row" style={{ width: "80%" }} />
+                  </div>
+                ))
+              ) : sites.length > 0 ? (
                 sites.map(site => (
                   <SiteRow key={site.id} site={site} onClick={setSelected} />
                 ))
@@ -342,7 +390,7 @@ export default function Dashboard() {
               VIEW STATUS PAGE
             </button>
             <button 
-              onClick={() => handleDeleteClick(currentSelectedDetail.id, currentSelectedDetail.name)}
+              onClick={() => handleDeleteClick(currentSelectedDetail.id)}
               disabled={deleteMutation.isPending}
               style={{
                 flex: 1, background: "transparent", border: "1px solid #ff3b5c",
@@ -353,7 +401,7 @@ export default function Dashboard() {
                 opacity: deleteMutation.isPending ? 0.5 : 1
               }}
             >
-              {deleteMutation.isPending ? "REMOVING..." : "REMOVE"}
+              REMOVE
             </button>
           </div>
         </div>

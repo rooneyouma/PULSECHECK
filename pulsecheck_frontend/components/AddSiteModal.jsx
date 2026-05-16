@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/providers/api";
 
-export default function AddSiteModal({ onClose }) {
+export default function AddSiteModal({ onClose, onAdd }) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -17,7 +17,9 @@ export default function AddSiteModal({ onClose }) {
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/sites/"] });
+      // Use exact:false so it matches all paginated keys like "/sites/?page=1"
+      queryClient.invalidateQueries({ queryKey: ["/sites/"], exact: false });
+      if (onAdd) onAdd(); // Also trigger parent's refetch for immediate update
       onClose();
     },
     onError: (err) => {
