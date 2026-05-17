@@ -5,8 +5,10 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.permissions import AllowAny
 from .models import Site, Check, Incident, Configuration
 from .serializers import SiteSerializer, CheckSerializer, IncidentSerializer
+
 
 class SiteViewSet(ModelViewSet):
     queryset = Site.objects.all()
@@ -31,6 +33,8 @@ class IncidentViewSet(ModelViewSet):
     serializer_class = IncidentSerializer
 
 class StatusPageViewSet(ReadOnlyModelViewSet):
+    permission_classes = [AllowAny]
+    
     queryset = Site.objects.filter(is_active=True)
     serializer_class = SiteSerializer
     lookup_field = 'slug'
