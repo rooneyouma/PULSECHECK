@@ -20,14 +20,14 @@ from django.urls import path,include
 from django.http import JsonResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-SECRET_ADMIN_PATH = os.getenv('ADMIN_URL', 'admin/')
+SECRET_ADMIN_PATH = os.getenv('ADMIN_URL', 'admin/').strip('/') 
 
 def health_check(request):
     return JsonResponse({"status": "healthy"})
 
 urlpatterns = [
     path('health/', health_check, name='health_check'),
-    path(f'{SECRET_ADMIN_PATH}', admin.site.urls),
+    path(f'{SECRET_ADMIN_PATH}/', admin.site.urls),
     path('api/',include('monitor.urls')),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
