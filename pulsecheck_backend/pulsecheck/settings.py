@@ -201,12 +201,12 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'PulseCheck Alerts <alerts@pulsecheck.com>')
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'admin@pulsecheck.com')
 
-# Tell Celery Beat exactly what to run and how often
+# Celery Beat Test
 # CELERY_BEAT_SCHEDULE = {
 #     'automated-ping-sweep-every-minute': {
-#         'task': 'monitor.tasks.trigger_all_site_checks', 
-#         'schedule': 30.0,  
+#         'task': 'monitor.tasks.trigger_all_site_checks',
+#         'schedule': 30.0,  # Every 30 seconds
 #     },
 # }
-# Tell Celery to use the Database Scheduler instead of static files
+# Celery db_scheduler
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

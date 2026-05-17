@@ -17,11 +17,16 @@ Including another URLconf
 from django.contrib import admin
 import os
 from django.urls import path,include
+from django.http import JsonResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 SECRET_ADMIN_PATH = os.getenv('ADMIN_URL', 'admin/')
 
+def health_check(request):
+    return JsonResponse({"status": "healthy"})
+
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
     path(f'{SECRET_ADMIN_PATH}', admin.site.urls),
     path('api/',include('monitor.urls')),
 

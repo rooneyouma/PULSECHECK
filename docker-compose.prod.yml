@@ -1,66 +1,54 @@
 services:
 
-  # Frontend
   frontend:
-    build:
-      context: ./pulsecheck_frontend
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+    image: ${DOCKERHUB_USERNAME}/pulsecheck-frontend:latest
     ports:
       - "3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
 
-  # Backend (Django + Gunicorn) 
   backend:
-    build: ./pulsecheck_backend
+    image: ${DOCKERHUB_USERNAME}/pulsecheck-backend:latest
     ports:
       - "8000:8000"
     env_file:
-      - ./pulsecheck_backend/.env
+      - .env
     environment:
-      REDIS_URL: redis://redis:6379/0   
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
-  # Celery Worker 
   celery:
-    build: ./pulsecheck_backend
+    image: ${DOCKERHUB_USERNAME}/pulsecheck-backend:latest
     command: celery -A pulsecheck worker --loglevel=info
     env_file:
-      - ./pulsecheck_backend/.env
+      - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
 
-  # Celery Beat (Scheduler) 
   celery-beat:
-    build: ./pulsecheck_backend
+    image: ${DOCKERHUB_USERNAME}/pulsecheck-backend:latest
     command: celery -A pulsecheck beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     env_file:
-      - ./pulsecheck_backend/.env
+      - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
     depends_on:
       redis:
         condition: service_healthy
       backend:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
-  # Redis (Celery Broker) 
   redis:
     image: redis:7-alpine
     healthcheck:
