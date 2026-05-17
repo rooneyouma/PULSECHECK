@@ -193,7 +193,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+      <div className="mobile-page-pad" style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
 
         {/* Stats Row */}
         <div className="mobile-grid-stats" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "32px" }}>

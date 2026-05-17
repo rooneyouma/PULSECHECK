@@ -66,3 +66,36 @@ class SiteSerializer(serializers.ModelSerializer):
 
     def get_incidents(self, obj):
         return Incident.objects.filter(site=obj, resolved_at__isnull=True).count()
+
+
+class StatusSummarySerializer(serializers.ModelSerializer):
+    """Lightweight serializer for the public /status hub list.
+    Reads only the single latest Check per site to avoid N+1 overhead."""
+    status = serializers.SerializerMethodField()
+    uptime = serializers.SerializerMethodField()
+    is_up = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Site
+        fields = ['name', 'slug', 'url', 'status', 'uptime', 'is_up']
+
+    def _latest(self, obj):
+        # Cache per-instance so the three methods don't each hit the DB
+        if not hasattr(obj, '_latest_check'):
+            obj._latest_check = Check.objects.filter(site=obj).order_by('-checked_at').first()
+        return obj._latest_check
+
+    def get_status(self, obj):
+        latest = self._latest(obj)
+        return latest.status if latest else 'pending'
+
+    def get_is_up(self, obj):
+        latest = self._latest(obj)
+        return (latest.status == 'up') if latest else False
+
+    def get_uptime(self, obj):
+        all_checks = Check.objects.filter(site=obj)
+        if not all_checks.exists():
+            return 100.0
+        up_count = all_checks.filter(status='up').count()
+        return round((up_count / all_checks.count()) * 100, 2)

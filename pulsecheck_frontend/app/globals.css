@@ -48,4 +48,15 @@ body {
 
   /* Footer Layout */
   .mobile-footer { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+
+  /* Dashboard: shrink outer padding */
+  .mobile-page-pad { padding: 16px !important; }
+
+  /* Slug status page: shrink outer padding */
+  .slug-page-pad { padding: 24px 16px !important; }
+
+  /* Hub page overrides */
+  .hub-header-pad { padding: 0 16px !important; }
+  .hub-page-pad { padding: 24px 16px !important; }
+  .hub-stat-grid { grid-template-columns: 1fr 1fr !important; }
 }

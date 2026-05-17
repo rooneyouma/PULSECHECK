@@ -85,7 +85,7 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <div style={{ padding: "48px 32px", maxWidth: "800px", margin: "0 auto" }}>
+      <div className="slug-page-pad" style={{ padding: "48px 32px", maxWidth: "800px", margin: "0 auto" }}>
         
         {/* Main Status Header */}
         <div style={{

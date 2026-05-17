@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import AllowAny
 from .models import Site, Check, Incident, Configuration
-from .serializers import SiteSerializer, CheckSerializer, IncidentSerializer
+from .serializers import SiteSerializer, CheckSerializer, IncidentSerializer, StatusSummarySerializer
 
 
 class SiteViewSet(ModelViewSet):
@@ -34,10 +34,15 @@ class IncidentViewSet(ModelViewSet):
 
 class StatusPageViewSet(ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
-    
+
     queryset = Site.objects.filter(is_active=True)
     serializer_class = SiteSerializer
     lookup_field = 'slug'
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return StatusSummarySerializer
+        return SiteSerializer
 
     def retrieve(self, request, *args, **kwargs):
         site = self.get_object()
