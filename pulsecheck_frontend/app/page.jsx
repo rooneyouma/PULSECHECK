@@ -1,109 +1,76 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import SiteRow from "@/components/SiteCard";
-import AddSiteModal from "@/components/AddSiteModal";
-import StatusDot from "@/components/StatusDot";
-import UptimeBar from "@/components/UptimeChart";
-import api from "@/providers/api";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import IncidentsTab from "@/components/IncidentsTab";
-import SettingsTab from "@/components/SettingsTab";
+import axios from "axios";
+import { useEffect, useState } from "react";
 
-export default function Dashboard() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState("MONITORS");
-  const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [time, setTime] = useState(null);
-  const [page, setPage] = useState(1);
-  const queryClient = useQueryClient();
+const publicApi = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api",
+  timeout: 10000,
+  headers: { "Content-Type": "application/json" },
+});
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    router.push("/login");
-  };
-
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: [`/sites/?page=${page}`],
-    refetchInterval: 10000, 
-  });
-  
-  const sites = data?.results || [];
-  const totalCount = data?.count || 0;
-
-  
-  const deleteMutation = useMutation({
-    mutationFn: async (siteId) => {
-      return await api.delete(`/sites/${siteId}/`);
-    },
-    // Optimistic update: remove from cache immediately before server responds
-    onMutate: async (siteId) => {
-      const queryKey = [`/sites/?page=${page}`];
-      await queryClient.cancelQueries({ queryKey });
-      const previousData = queryClient.getQueryData(queryKey);
-      queryClient.setQueryData(queryKey, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          count: Math.max(0, (old.count || 1) - 1),
-          results: old.results.filter((s) => s.id !== siteId),
-        };
-      });
-      setSelected(null);
-      return { previousData, queryKey };
-    },
-    onError: (err, _siteId, context) => {
-      // Roll back on failure
-      if (context?.previousData) {
-        queryClient.setQueryData(context.queryKey, context.previousData);
-      }
-      console.error("Delete Error:", err);
-    },
-    onSettled: () => {
-      // Sync with server after optimistic update
-      queryClient.invalidateQueries({ queryKey: ["/sites/"], exact: false });
-    },
-  });
-
-  // No confirm() prompt — delete immediately on click
-  const handleDeleteClick = (siteId) => {
-    deleteMutation.mutate(siteId);
-  };
-
- 
-  const stats = {
-    totalSites: totalCount,
-    upSites: sites.filter(s => s.status === "up" || s.status === "operational").length,
-    avgUptime: sites.length 
-      ? parseFloat((sites.reduce((acc, s) => acc + (s.uptime || 100), 0) / sites.length).toFixed(2)) 
-      : 100,
-    avgResponse: sites.length
-      ? Math.round(sites.reduce((acc, s) => acc + (s.responseTime || s.last_response_time || 0), 0) / sites.length)
-      : 0,
-    activeIncidents: sites.filter(s => s.status === "down").length,
-  };
-
- 
-  const currentSelectedDetail = selected ? sites.find(s => s.id === selected.id) || selected : null;
-
+function useClock() {
+  const [time, setTime] = useState("");
   useEffect(() => {
-    setTime(new Date());
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
+    const tick = () =>
+      setTime(new Date().toLocaleTimeString("en-GB", { hour12: false }));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
   }, []);
+  return time;
+}
 
-  // Removed hard loading block to prevent bfcache hangs on back navigation.
-  // Valid queries will seamlessly pass through resolving `sites` iteratively.
-
-  if (isError) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#070b14", color: "#ff3b5c", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono', monospace" }}>
-        <span style={{ fontSize: "12px", letterSpacing: "0.1em" }}>FAILED TO CONNECT TO MONITOR BACKEND ENGINE</span>
+function SkeletonRow() {
+  return (
+    <div className="hub-table-row" style={{
+      borderBottom: "1px solid #1a1f2e",
+      animation: "pulse 1.5s ease-in-out infinite",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#1a1f2e", flexShrink: 0 }} />
+        <div style={{ height: 12, width: "55%", background: "#1a1f2e", borderRadius: 4 }} />
       </div>
-    );
-  }
+      <div style={{ height: 11, width: "60%", background: "#111827", borderRadius: 4 }} className="mobile-hide" />
+      <div style={{ height: 12, width: "50%", background: "#1a1f2e", borderRadius: 4 }} />
+      <div style={{ height: 22, width: 90, background: "#1a1f2e", borderRadius: 6 }} />
+    </div>
+  );
+}
+
+function MiniBar({ is_up }) {
+  const bars = Array.from({ length: 12 }, (_, i) => i);
+  return (
+    <div style={{ display: "flex", gap: 3, alignItems: "flex-end" }}>
+      {bars.map((i) => (
+        <div
+          key={i}
+          style={{
+            width: 4,
+            height: 10 + Math.sin(i * 1.3) * 4,
+            borderRadius: 2,
+            background: is_up ? "rgba(0,255,136,0.6)" : "rgba(255,59,92,0.5)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function StatusHubPage() {
+  const router = useRouter();
+  const clock = useClock();
+
+  const { data: sites = [], isLoading, isError } = useQuery({
+    queryKey: ["status-hub"],
+    queryFn: () => publicApi.get("/status/").then((r) => r.data?.results ?? r.data ?? []),
+    refetchInterval: 15000,
+  });
+
+  const total = sites.length;
+  const operational = sites.filter((s) => s.is_up).length;
+  const issues = total - operational;
 
   return (
     <div style={{
@@ -118,296 +85,203 @@ export default function Dashboard() {
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #070b14; }
         ::-webkit-scrollbar-thumb { background: #1a1f2e; border-radius: 2px; }
-        input::placeholder { color: #2d3748; }
-        @keyframes shimmer {
-          0% { background-position: -600px 0; }
-          100% { background-position: 600px 0; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
-        .skeleton-row {
-          background: linear-gradient(90deg, #0d1117 25%, #1a1f2e 50%, #0d1117 75%);
-          background-size: 600px 100%;
-          animation: shimmer 1.4s infinite linear;
-          border-radius: 4px;
-          height: 14px;
+        @keyframes ping {
+          0% { transform: scale(1); opacity: 1; }
+          75%, 100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        .hub-table-row {
+          display: grid;
+          grid-template-columns: 2fr 2fr 160px 120px;
+          gap: 16px;
+          align-items: center;
+          padding: 18px 24px;
+          border-left: 3px solid transparent;
+          cursor: pointer;
+          transition: background 0.15s, border-left-color 0.15s;
+        }
+        .hub-table-header {
+          display: grid;
+          grid-template-columns: 2fr 2fr 160px 120px;
+          gap: 16px;
+          align-items: center;
+          padding: 12px 24px;
+          border-bottom: 1px solid #1a1f2e;
+        }
+        .hub-row-up:hover { background: rgba(255,255,255,0.02); border-left-color: #00ff88; }
+        .hub-row-down:hover { background: rgba(255,59,92,0.03); border-left-color: #ff3b5c; }
+
+        @media (max-width: 640px) {
+          .hub-table-header { display: none; }
+          .hub-table-row {
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto auto;
+            gap: 8px 12px;
+            padding: 16px;
+          }
+          .hub-col-url { display: none; }
+          .hub-col-uptime { grid-column: 1 / 2; grid-row: 2 / 3; }
+          .hub-col-badge { grid-column: 2 / 3; grid-row: 1 / 3; align-self: center; }
+          .hub-stat-grid { grid-template-columns: 1fr 1fr !important; }
+          .hub-page-pad { padding: 24px 16px !important; }
+          .hub-header-pad { padding: 0 16px !important; }
         }
       `}</style>
 
       {/* Header */}
-      <div className="mobile-nav-wrap" style={{
+      <div className="hub-header-pad" style={{
         borderBottom: "1px solid #1a1f2e",
         padding: "0 32px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         height: "56px",
+        position: "sticky", top: 0, zIndex: 10,
+        background: "#070b14",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "13px", fontWeight: "500", letterSpacing: "0.15em", color: "#e2e8f0" }}>
-              PULSECHECK
-            </span>
-          </div>
-          <div className="mobile-nav-tabs" style={{ display: "flex", gap: "24px" }}>
-            {["MONITORS", "INCIDENTS", "SETTINGS"].map(item => (
-              <span key={item} 
-                onClick={() => setActiveTab(item)}
-                style={{
-                fontSize: "11px", color: activeTab === item ? "#00ff88" : "#4a5568",
-                letterSpacing: "0.08em", cursor: "pointer",
-                borderBottom: activeTab === item ? "1px solid #00ff88" : "none",
-                paddingBottom: "2px",
-              }}>{item}</span>
-            ))}
-          </div>
-        </div>
-        <div className="mobile-nav-actions" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ fontSize: "11px", color: "#2d3748", letterSpacing: "0.05em" }}>
-            {time ? time.toLocaleTimeString("en-GB") : "--:--:--"}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span style={{ fontSize: "13px", fontWeight: "500", letterSpacing: "0.15em", color: "#e2e8f0" }}>
+            PULSECHECK
           </span>
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
-              background: "#00ff88", color: "#070b14", border: "none",
-              borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
-              fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            + ADD MONITOR
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "transparent", color: "#ff3b5c", border: "1px solid #ff3b5c",
-              borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
-              fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
-              fontFamily: "'DM Mono', monospace", transition: "all 0.2s"
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "rgba(255, 59, 92, 0.1)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            TERMINATE SESSION
-          </button>
+          <span style={{ color: "#4a5568" }}>/</span>
+          <span style={{ fontSize: "13px", color: "#4a5568", letterSpacing: "0.08em" }}>STATUS</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <span style={{ fontSize: "11px", color: "#4a5568", letterSpacing: "0.12em", fontVariantNumeric: "tabular-nums" }}>
+            {clock}
+          </span>
         </div>
       </div>
 
-      <div className="mobile-page-pad" style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+      <div className="hub-page-pad" style={{ maxWidth: "960px", margin: "0 auto", padding: "40px 32px" }}>
 
-        {/* Stats Row */}
-        <div className="mobile-grid-stats" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "32px" }}>
+        {/* Page title */}
+        <div style={{ marginBottom: "32px" }}>
+          <h1 style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: "28px", fontWeight: 800,
+            letterSpacing: "0.04em", color: "#e2e8f0",
+            marginBottom: "6px",
+          }}>
+            MONITOR STATUS
+          </h1>
+          <p style={{ fontSize: "12px", color: "#4a5568", letterSpacing: "0.06em" }}>
+            Live status for all active monitors · refreshes every 15s
+          </p>
+        </div>
+
+        {/* Stat Pills */}
+        <div className="hub-stat-grid" style={{
+          display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "12px", marginBottom: "32px",
+        }}>
           {[
-            { label: "TOTAL MONITORS", value: stats.totalSites, unit: "" },
-            { label: "OPERATIONAL", value: stats.upSites, unit: `/ ${stats.totalSites}`, color: "#00ff88" },
-            { label: "AVG UPTIME", value: stats.avgUptime, unit: "%", color: "#00ff88" },
-            { label: "AVG RESPONSE", value: stats.avgResponse, unit: "ms" },
-            { label: "ACTIVE INCIDENTS", value: stats.activeIncidents, unit: "", color: stats.activeIncidents > 0 ? "#ff3b5c" : "#00ff88" },
-          ].map((stat, i) => (
-            <div key={i} style={{
+            { label: "MONITORS", value: isLoading ? "—" : total, color: "#e2e8f0" },
+            { label: "OPERATIONAL", value: isLoading ? "—" : operational, color: "#00ff88" },
+            { label: "ISSUES", value: isLoading ? "—" : issues, color: issues > 0 ? "#ff3b5c" : "#4a5568" },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{
               background: "#0a0e1a", border: "1px solid #1a1f2e",
-              borderRadius: "8px", padding: "16px 18px",
+              borderRadius: "10px", padding: "20px 24px",
+              display: "flex", flexDirection: "column", gap: "6px",
             }}>
-              <div style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "8px" }}>
-                {stat.label}
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-                <span style={{ fontSize: "22px", fontWeight: "500", color: stat.color || "#e2e8f0", fontFamily: "'Syne', sans-serif" }}>
-                  {stat.value}
-                </span>
-                <span style={{ fontSize: "11px", color: "#4a5568" }}>{stat.unit}</span>
-              </div>
+              <span style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.12em" }}>{label}</span>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "28px", fontWeight: 800, color }}>{value}</span>
             </div>
           ))}
         </div>
 
-        {/* Active Incident Banner */}
-        {stats.activeIncidents > 0 && (
-          <div style={{
-            background: "rgba(255, 59, 92, 0.08)", border: "1px solid rgba(255,59,92,0.2)",
-            borderRadius: "8px", padding: "12px 18px", marginBottom: "20px",
-            display: "flex", alignItems: "center", gap: "10px",
-          }}>
-            <span style={{ color: "#ff3b5c", fontSize: "11px" }}>●</span>
-            <span style={{ color: "#ff3b5c", fontSize: "12px", letterSpacing: "0.05em" }}>
-              ACTIVE INCIDENT — {stats.activeIncidents} of your tracked endpoints are reporting operational outages
-            </span>
+        {/* Site Table */}
+        <div style={{ background: "#0a0e1a", border: "1px solid #1a1f2e", borderRadius: "12px", overflow: "hidden" }}>
+          <div className="hub-table-header">
+            <span style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.12em" }}>MONITOR</span>
+            <span className="hub-col-url" style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.12em" }}>URL</span>
+            <span style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.12em" }}>UPTIME</span>
+            <span style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.12em" }}>STATUS</span>
           </div>
-        )}
 
-        {/* Tab Logic Rendering */}
-        {activeTab === "MONITORS" && (
-          <>
-            {/* Sites Table */}
-            <div style={{
-              background: "#0a0e1a", border: "1px solid #1a1f2e",
-              borderRadius: "10px", overflow: "hidden",
-            }}>
-              {/* Table Header */}
-              <div className="mobile-table-header" style={{
-                display: "grid",
-                gridTemplateColumns: "1.5fr 1fr 1fr 1.2fr 1.5fr",
-                padding: "12px 20px",
-                borderBottom: "1px solid #1a1f2e",
-                gap: "12px",
-              }}>
-                {["MONITOR", "UPTIME", "RESPONSE", "CHECKED", "LAST 20 CHECKS"].map(h => (
-                  <span key={h} style={{ fontSize: "10px", color: "#2d3748", letterSpacing: "0.1em" }}>{h}</span>
-                ))}
-              </div>
+          {isLoading && (
+            <><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /></>
+          )}
 
-              {/* Real Backend Map Rows */}
-              {isLoading ? (
-                // Skeleton rows during initial load — no empty-state flash
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} style={{
-                    display: "grid",
-                    gridTemplateColumns: "1.5fr 1fr 1fr 1.2fr 1.5fr",
-                    padding: "16px 20px",
-                    borderBottom: "1px solid #1a1f2e",
-                    gap: "12px",
-                    alignItems: "center",
-                  }}>
-                    <div className="skeleton-row" style={{ width: "60%" }} />
-                    <div className="skeleton-row" style={{ width: "40%" }} />
-                    <div className="skeleton-row" style={{ width: "50%" }} />
-                    <div className="skeleton-row" style={{ width: "70%" }} />
-                    <div className="skeleton-row" style={{ width: "80%" }} />
-                  </div>
-                ))
-              ) : sites.length > 0 ? (
-                sites.map(site => (
-                  <SiteRow key={site.id} site={site} onClick={setSelected} />
-                ))
-              ) : (
-                <div style={{ padding: "48px", textAlign: "center", color: "#4a5568", fontSize: "12px", letterSpacing: "0.05em" }}>
-                  NO MONITORS REGISTERED ON CORE ENGINE NETWORK
-                </div>
-              )}
-            </div>
-
-            {/* Pagination Controls */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" }}>
-              <button 
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={{
-                  background: "transparent", color: page === 1 ? "#4a5568" : "#00ff88", 
-                  border: `1px solid ${page === 1 ? '#1a1f2e' : '#00ff88'}`, padding: "6px 12px", borderRadius: "6px",
-                  cursor: page === 1 ? "not-allowed" : "pointer", fontSize: "11px",
-                  fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em"
-                }}
-              >
-                ← PREV
-              </button>
-              <span style={{ fontSize: "11px", color: "#4a5568", letterSpacing: "0.1em" }}>
-                PAGE {page} {data?.count ? `(TOTAL: ${data.count})` : ''}
+          {isError && !isLoading && (
+            <div style={{ padding: "48px 24px", textAlign: "center" }}>
+              <span style={{ fontSize: "11px", color: "#ff3b5c", letterSpacing: "0.1em" }}>
+                FAILED TO LOAD MONITORS — BACKEND UNREACHABLE
               </span>
-              <button 
-                onClick={() => setPage(p => p + 1)}
-                disabled={!data?.next}
-                style={{
-                  background: "transparent", color: !data?.next ? "#4a5568" : "#00ff88", 
-                  border: `1px solid ${!data?.next ? '#1a1f2e' : '#00ff88'}`, padding: "6px 12px", borderRadius: "6px",
-                  cursor: !data?.next ? "not-allowed" : "pointer", fontSize: "11px",
-                  fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em"
-                }}
+            </div>
+          )}
+
+          {!isLoading && !isError && sites.length === 0 && (
+            <div style={{ padding: "64px 24px", textAlign: "center" }}>
+              <p style={{ fontSize: "12px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "8px" }}>
+                NO ACTIVE MONITORS
+              </p>
+              <p style={{ fontSize: "11px", color: "#2d3748" }}>
+                Add a site from your dashboard to start monitoring.
+              </p>
+            </div>
+          )}
+
+          {!isLoading && !isError && sites.map((site, idx) => {
+            const isUp = site.is_up;
+            const dotColor = isUp ? "#00ff88" : site.status === "pending" ? "#fbbf24" : "#ff3b5c";
+            const isLast = idx === sites.length - 1;
+            return (
+              <div
+                key={site.slug}
+                className={`hub-table-row ${isUp ? "hub-row-up" : "hub-row-down"}`}
+                onClick={() => router.push(`/status/${site.slug}`)}
+                style={{ borderBottom: isLast ? "none" : "1px solid #1a1f2e" }}
               >
-                NEXT →
-              </button>
-            </div>
-          </>
-        )}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: dotColor }} />
+                    {isUp && (
+                      <div style={{
+                        position: "absolute", inset: 0, borderRadius: "50%",
+                        background: dotColor, opacity: 0.4,
+                        animation: "ping 2s cubic-bezier(0,0,0.2,1) infinite",
+                      }} />
+                    )}
+                  </div>
+                  <span style={{ fontSize: "13px", fontWeight: "500", color: "#e2e8f0", letterSpacing: "0.06em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {site.name}
+                  </span>
+                </div>
 
-        {activeTab === "INCIDENTS" && <IncidentsTab />}
-        {activeTab === "SETTINGS" && <SettingsTab />}
+                <span className="hub-col-url" style={{ fontSize: "11px", color: "#4a5568", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {site.url.replace(/^https?:\/\//, "")}
+                </span>
 
-        {/* Footer */}
-        <div className="mobile-footer" style={{
-          marginTop: "20px", display: "flex",
-          justifyContent: "space-between", alignItems: "center",
-        }}>
-          <span style={{ fontSize: "11px", color: "#2d3748" }}>
-            Checks run automatically via pipeline systems
-          </span>
-          <span style={{ fontSize: "11px", color: "#2d3748" }}>
-            {totalCount} monitors active
-          </span>
-        </div>
-      </div>
+                <div className="hub-col-uptime" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <MiniBar is_up={isUp} />
+                  <span style={{ fontSize: "12px", color: isUp ? "#00ff88" : "#ff3b5c", fontWeight: "500", minWidth: "42px", textAlign: "right" }}>
+                    {site.uptime}%
+                  </span>
+                </div>
 
-      {/* Site Detail Panel */}
-      {currentSelectedDetail && (
-        <div className="mobile-modal-panel" style={{
-          position: "fixed", right: 0, top: 0, bottom: 0, width: "360px",
-          background: "#0a0e1a", borderLeft: "1px solid #1a1f2e",
-          padding: "28px", overflowY: "auto", zIndex: 50,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "24px" }}>
-            <span style={{ fontSize: "12px", letterSpacing: "0.1em", color: "#4a5568" }}>MONITOR DETAIL</span>
-            <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", color: "#4a5568", cursor: "pointer" }}>✕</button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-            <StatusDot status={currentSelectedDetail.status} />
-            <div>
-              <div style={{ fontSize: "16px", fontWeight: "500", color: "#e2e8f0", fontFamily: "'Syne', sans-serif" }}>{currentSelectedDetail.name}</div>
-              <div style={{ fontSize: "11px", color: "#4a5568", marginTop: "2px" }}>{currentSelectedDetail.url}</div>
-            </div>
-          </div>
-
-          <div className="mobile-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px" }}>
-            {[
-              { label: "UPTIME", value: `${currentSelectedDetail.uptime || 100}%` },
-              { label: "RESPONSE", value: (currentSelectedDetail.responseTime || currentSelectedDetail.last_response_time) ? `${currentSelectedDetail.responseTime || currentSelectedDetail.last_response_time}ms` : "—" },
-              { label: "INCIDENTS", value: currentSelectedDetail.incidents ?? 0 },
-              { label: "LAST CHECK", value: currentSelectedDetail.lastChecked || currentSelectedDetail.last_checked ? new Date(currentSelectedDetail.lastChecked || currentSelectedDetail.last_checked).toLocaleString("en-GB", { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "PENDING" },
-            ].map((item, i) => (
-              <div key={i} style={{
-                background: "#070b14", border: "1px solid #1a1f2e",
-                borderRadius: "6px", padding: "12px",
-              }}>
-                <div style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "6px" }}>{item.label}</div>
-                <div style={{ fontSize: "16px", color: "#e2e8f0", fontFamily: "'Syne', sans-serif" }}>{item.value}</div>
+                <div className="hub-col-badge" style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  padding: "5px 10px", borderRadius: "6px",
+                  background: isUp ? "rgba(0,255,136,0.08)" : site.status === "pending" ? "rgba(251,191,36,0.08)" : "rgba(255,59,92,0.08)",
+                  border: `1px solid ${isUp ? "rgba(0,255,136,0.2)" : site.status === "pending" ? "rgba(251,191,36,0.2)" : "rgba(255,59,92,0.2)"}`,
+                }}>
+                  <span style={{ fontSize: "9px", letterSpacing: "0.12em", color: dotColor, whiteSpace: "nowrap" }}>
+                    {isUp ? "OPERATIONAL" : site.status === "pending" ? "PENDING" : "DOWN"}
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontSize: "10px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "10px" }}>UPTIME HISTORY</div>
-            <UptimeBar history={currentSelectedDetail.history || currentSelectedDetail.ping_history || []} />
-          </div>
-
-          <div style={{ display: "flex", gap: "8px", marginTop: "24px" }}>
-            <button 
-              onClick={() => router.push(`/status/${currentSelectedDetail.slug}`)}
-              style={{
-              flex: 1, background: "transparent", border: "1px solid #1a1f2e",
-              color: "#4a5568", borderRadius: "6px", padding: "9px",
-              fontSize: "11px", cursor: "pointer", fontFamily: "'DM Mono', monospace",
-              letterSpacing: "0.06em",
-            }}>
-              VIEW STATUS PAGE
-            </button>
-            <button 
-              onClick={() => handleDeleteClick(currentSelectedDetail.id)}
-              disabled={deleteMutation.isPending}
-              style={{
-                flex: 1, background: "transparent", border: "1px solid #ff3b5c",
-                color: "#ff3b5c", borderRadius: "6px", padding: "9px",
-                fontSize: "11px", cursor: deleteMutation.isPending ? "not-allowed" : "pointer", 
-                fontFamily: "'DM Mono', monospace",
-                letterSpacing: "0.06em",
-                opacity: deleteMutation.isPending ? 0.5 : 1
-              }}
-            >
-              REMOVE
-            </button>
-          </div>
+            );
+          })}
         </div>
-      )}
 
-      {showModal && <AddSiteModal onClose={() => setShowModal(false)} onAdd={refetch} />}
+        <p style={{ fontSize: "10px", color: "#2d3748", letterSpacing: "0.08em", textAlign: "center", marginTop: "24px" }}>
+          Click any monitor to view its detailed status page
+        </p>
+      </div>
     </div>
   );
 }
