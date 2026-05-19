@@ -11,7 +11,7 @@ from .serializers import SiteSerializer, CheckSerializer, IncidentSerializer, St
 
 
 class SiteViewSet(ModelViewSet):
-    queryset = Site.objects.all()
+    queryset = Site.objects.all().order_by('-created_at')
     serializer_class = SiteSerializer
 
     @action(detail=True, methods=['get'])
