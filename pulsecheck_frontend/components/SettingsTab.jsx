@@ -3,6 +3,7 @@ import api from "@/providers/api";
 
 export default function SettingsTab() {
   const [email, setEmail] = useState("");
+  const [interval, setInterval] = useState(5);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -10,13 +11,17 @@ export default function SettingsTab() {
     api.get("/settings/alert-email/")
       .then(res => {
         if (res.data.alert_email) setEmail(res.data.alert_email);
+        if (res.data.check_interval) setInterval(res.data.check_interval);
       }).catch(console.error);
   }, []);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      await api.post("/settings/alert-email/", { alert_email: email });
+      await api.post("/settings/alert-email/", { 
+        alert_email: email,
+        check_interval: Number(interval)
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000); // UI visual timeout
     } catch (error) {
@@ -41,6 +46,22 @@ export default function SettingsTab() {
             type="email" 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            style={{ 
+              width: "100%", maxWidth: "400px", background: "transparent", border: "1px solid #1a1f2e", 
+              color: "#e2e8f0", padding: "12px", borderRadius: "6px", outline: "none", 
+              fontSize: "12px", fontFamily: "'DM Mono', monospace" 
+            }} 
+          />
+        </div>
+
+        <div style={{ paddingBottom: "16px", borderBottom: "1px solid #1a1f2e" }}>
+          <label style={{ display: "block", fontSize: "10px", color: "#4a5568", letterSpacing: "0.1em", marginBottom: "8px" }}>GLOBAL CHECK INTERVAL (MINUTES)</label>
+          <input 
+            type="number" 
+            value={interval}
+            min={1}
+            max={60}
+            onChange={(e) => setInterval(e.target.value)}
             style={{ 
               width: "100%", maxWidth: "400px", background: "transparent", border: "1px solid #1a1f2e", 
               color: "#e2e8f0", padding: "12px", borderRadius: "6px", outline: "none", 

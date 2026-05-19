@@ -40,6 +40,7 @@ class Incident(models.Model):
 
 class Configuration(models.Model):
     alert_email = models.EmailField(default="admin@pulsecheck.com")
+    check_interval = models.IntegerField(default=5)
 
     def save(self, *args, **kwargs):
         self.pk = 1 

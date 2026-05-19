@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null);
   const [time, setTime] = useState(null);
   const [page, setPage] = useState(1);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Auth guard — redirect to login if no token present
@@ -129,68 +130,146 @@ export default function Dashboard() {
           border-radius: 4px;
           height: 14px;
         }
+        /* hamburger + mobile clock: hidden by default, shown only in mobile media query */
+        .hamburger-btn { display: none !important; }
+        .mob-clock { display: none !important; }
+        .mob-actions { display: none !important; }
+        @media (max-width: 768px) {
+          body, html { overflow-x: hidden; width: 100vw; }
+          .desk-tabs { display: none !important; }
+          .desk-slash { display: none !important; }
+          .desk-actions { display: none !important; }
+          .mob-actions { display: flex !important; }
+          .hamburger-btn { display: flex !important; align-items: center; justify-content: center; }
+          .mob-clock { display: block !important; }
+          .mobile-page-pad { padding: 24px 16px !important; width: 100%; box-sizing: border-box; }
+          .mobile-grid-stats { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+          .mobile-grid-stats > div:first-child { grid-column: 1 / -1; }
+          .mobile-table-header { display: none !important; }
+          .mobile-grid-2 { grid-template-columns: 1fr !important; }
+          .mobile-modal-panel { width: 100vw !important; left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; max-height: 80vh; border-left: none !important; border-top: 1px solid #1a1f2e !important; }
+          .mobile-footer { flex-direction: column !important; gap: 6px !important; text-align: center !important; }
+        }
       `}</style>
 
-      {/* Header */}
-      <div className="mobile-nav-wrap" style={{
-        borderBottom: "1px solid #1a1f2e",
-        padding: "0 32px",
+
+      {/* ───── HEADER ───── */}
+      <div style={{
+        borderBottom: "1px solid #1a1f2e", flexShrink: 0,
+        padding: "0 48px", height: "56px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        height: "56px",
       }}>
+        {/* Left: brand + desktop tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={{ fontSize: "13px", fontWeight: "500", letterSpacing: "0.15em", color: "#e2e8f0", cursor: "pointer" }} onClick={() => router.push("/")}>
+            <span
+              style={{ fontSize: "13px", fontWeight: "500", letterSpacing: "0.15em", color: "#e2e8f0", cursor: "pointer", whiteSpace: "nowrap" }}
+              onClick={() => router.push("/")}
+            >
               PULSECHECK
             </span>
-            <span style={{ color: "#4a5568" }}>/</span>
-            <span style={{ fontSize: "13px", color: "#4a5568", letterSpacing: "0.08em" }}>DASHBOARD</span>
+            <span className="desk-slash" style={{ color: "#4a5568" }}>/</span>
+            <span className="desk-slash" style={{ fontSize: "13px", color: "#4a5568", letterSpacing: "0.08em" }}>DASHBOARD</span>
           </div>
-          <div className="mobile-nav-tabs" style={{ display: "flex", gap: "24px" }}>
+          <div className="desk-tabs" style={{ display: "flex", gap: "24px" }}>
             {["MONITORS", "INCIDENTS", "SETTINGS"].map(item => (
-              <span key={item} 
-                onClick={() => setActiveTab(item)}
-                style={{
+              <span key={item} onClick={() => setActiveTab(item)} style={{
                 fontSize: "11px", color: activeTab === item ? "#00ff88" : "#4a5568",
                 letterSpacing: "0.08em", cursor: "pointer",
                 borderBottom: activeTab === item ? "1px solid #00ff88" : "none",
-                paddingBottom: "2px",
+                paddingBottom: "2px", whiteSpace: "nowrap",
               }}>{item}</span>
             ))}
           </div>
         </div>
-        <div className="mobile-nav-actions" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ fontSize: "11px", color: "#2d3748", letterSpacing: "0.05em" }}>
-            {time ? time.toLocaleTimeString("en-GB") : "--:--:--"}
-          </span>
-          <button
-            onClick={() => setShowModal(true)}
-            style={{
+
+        {/* Right side wrapper (keeps exactly 2 children for space-between) */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {/* Right on desktop: clock + buttons */}
+          <div className="desk-actions" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <span style={{ fontSize: "11px", color: "#2d3748", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+              {time ? time.toLocaleTimeString("en-GB") : "--:--:--"}
+            </span>
+            <button onClick={() => setShowModal(true)} style={{
               background: "#00ff88", color: "#070b14", border: "none",
               borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
               fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
-              fontFamily: "'DM Mono', monospace",
-            }}
-          >
-            + ADD MONITOR
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "transparent", color: "#ff3b5c", border: "1px solid #ff3b5c",
-              borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
-              fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
-              fontFamily: "'DM Mono', monospace", transition: "all 0.2s"
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255, 59, 92, 0.1)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-          >
-            TERMINATE SESSION
-          </button>
+              fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap",
+            }}>+ ADD MONITOR</button>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: "transparent", color: "#ff3b5c", border: "1px solid #ff3b5c",
+                borderRadius: "6px", padding: "7px 14px", fontSize: "11px",
+                fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
+                fontFamily: "'DM Mono', monospace", whiteSpace: "nowrap",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,59,92,0.1)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+            >TERMINATE SESSION</button>
+          </div>
+
+          {/* Right on mobile: live clock + hamburger */}
+          <div className="mob-actions" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span className="mob-clock" style={{ fontSize: "12px", color: "#4a5568", letterSpacing: "0.05em", fontFamily: "'DM Mono', monospace" }}>
+              {time ? time.toLocaleTimeString("en-GB") : "--:--:--"}
+            </span>
+            <button
+              className="hamburger-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ background: "none", border: "none", color: "#e2e8f0", fontSize: "22px", cursor: "pointer", padding: "4px", lineHeight: 1 }}
+            >
+              {mobileMenuOpen ? "✕" : "☰"}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="mobile-page-pad" style={{ padding: "32px", maxWidth: "1200px", margin: "0 auto" }}>
+      {/* Mobile dropdown — conditionally rendered so it NEVER appears on desktop */}
+      {mobileMenuOpen && (
+        <div style={{
+          position: "fixed", top: "56px", left: 0, right: 0,
+          background: "#070b14", borderBottom: "1px solid #1a1f2e",
+          zIndex: 200, padding: "0 24px 24px",
+          display: "flex", flexDirection: "column",
+        }}>
+          {["MONITORS", "INCIDENTS", "SETTINGS"].map(item => (
+            <span
+              key={item + "-mob"}
+              onClick={() => { setActiveTab(item); setMobileMenuOpen(false); }}
+              style={{
+                fontSize: "12px", color: activeTab === item ? "#00ff88" : "#4a5568",
+                letterSpacing: "0.08em", cursor: "pointer", padding: "16px 0",
+                borderBottom: "1px solid #1a1f2e", textAlign: "center",
+                fontFamily: "'DM Mono', monospace",
+                background: activeTab === item ? "rgba(0,255,136,0.04)" : "transparent",
+              }}
+            >{item}</span>
+          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
+            <button
+              onClick={() => { setShowModal(true); setMobileMenuOpen(false); }}
+              style={{
+                background: "#00ff88", color: "#070b14", border: "none",
+                borderRadius: "6px", padding: "13px", fontSize: "13px",
+                fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
+                fontFamily: "'DM Mono', monospace",
+              }}
+            >+ ADD MONITOR</button>
+            <button
+              onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+              style={{
+                background: "transparent", color: "#ff3b5c", border: "1px solid #ff3b5c",
+                borderRadius: "6px", padding: "13px", fontSize: "13px",
+                fontWeight: "700", cursor: "pointer", letterSpacing: "0.08em",
+                fontFamily: "'DM Mono', monospace",
+              }}
+            >TERMINATE SESSION</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mobile-page-pad" style={{ padding: "96px 48px 48px", maxWidth: "1400px", margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
 
         {/* Stats Row */}
         <div className="mobile-grid-stats" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "32px" }}>

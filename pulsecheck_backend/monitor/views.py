@@ -70,12 +70,34 @@ class StatusPageViewSet(ReadOnlyModelViewSet):
 class AlertEmailView(APIView):
     def get(self, request):
         config = Configuration.load()
-        return Response({"alert_email": config.alert_email})
+        return Response({
+            "alert_email": config.alert_email,
+            "check_interval": config.check_interval
+        })
 
     def post(self, request):
         email = request.data.get("alert_email", "")
+        interval = request.data.get("check_interval")
+        
+        config = Configuration.load()
         if email:
-            config = Configuration.load()
             config.alert_email = email
-            config.save()
-        return Response({"alert_email": email})
+            
+        if interval is not None:
+            try:
+                config.check_interval = int(interval)
+                # Update all existing Site tracking to the new interval
+                from django_celery_beat.models import IntervalSchedule, PeriodicTask
+                schedule, _ = IntervalSchedule.objects.get_or_create(
+                    every=config.check_interval, 
+                    period=IntervalSchedule.MINUTES
+                )
+                PeriodicTask.objects.filter(task='monitor.tasks.check_site').update(interval=schedule)
+            except ValueError:
+                pass
+
+        config.save()
+        return Response({
+            "alert_email": config.alert_email,
+            "check_interval": config.check_interval
+        })
