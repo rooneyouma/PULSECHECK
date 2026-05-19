@@ -16,7 +16,7 @@ services:
   backend:
     build: ./pulsecheck_backend
     ports:
-      - "8000:8000"
+      - "8000:10000"
     env_file:
       - ./pulsecheck_backend/.env
     restart: unless-stopped
