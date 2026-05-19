@@ -13,8 +13,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
-from celery.schedules import crontab
-
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -47,7 +45,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_celery_beat',
     'corsheaders',
     'monitor'
 ]
@@ -210,13 +207,3 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'PulseCheck Alerts <alerts@pulsecheck.com>')
 ALERT_EMAIL = os.getenv('ALERT_EMAIL', 'admin@pulsecheck.com')
-
-# Celery Beat Test
-# CELERY_BEAT_SCHEDULE = {
-#     'automated-ping-sweep-every-minute': {
-#         'task': 'monitor.tasks.trigger_all_site_checks',
-#         'schedule': 30.0,  # Every 30 seconds
-#     },
-# }
-# Celery db_scheduler
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
